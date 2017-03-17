@@ -20,6 +20,7 @@ package com.netflix.simianarmy.basic.conformity;
 import java.util.Collection;
 import java.util.Map;
 
+import com.netflix.simianarmy.aws.conformity.rule.*;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,16 +37,6 @@ import com.netflix.discovery.guice.EurekaModule;
 import com.netflix.simianarmy.aws.conformity.RDSConformityClusterTracker;
 import com.netflix.simianarmy.aws.conformity.SimpleDBConformityClusterTracker;
 import com.netflix.simianarmy.aws.conformity.crawler.AWSClusterCrawler;
-import com.netflix.simianarmy.aws.conformity.rule.BasicConformityEurekaClient;
-import com.netflix.simianarmy.aws.conformity.rule.ConformityEurekaClient;
-import com.netflix.simianarmy.aws.conformity.rule.CrossZoneLoadBalancing;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceHasHealthCheckUrl;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceHasStatusUrl;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceInSecurityGroup;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceInVPC;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceIsHealthyInEureka;
-import com.netflix.simianarmy.aws.conformity.rule.InstanceTooOld;
-import com.netflix.simianarmy.aws.conformity.rule.SameZonesInElbAndAsg;
 import com.netflix.simianarmy.basic.BasicSimianArmyContext;
 import com.netflix.simianarmy.client.aws.AWSClient;
 import com.netflix.simianarmy.conformity.ClusterCrawler;
@@ -173,6 +164,19 @@ public class BasicConformityMonkeyContext extends BasicSimianArmyContext impleme
         if (configuration().getBoolOrElse(
                 "simianarmy.conformity.rule.CrossZoneLoadBalancing.enabled", false)) {
                 ruleEngine().addRule(new CrossZoneLoadBalancing(getAwsCredentialsProvider()));
+        }
+
+        if (configuration().getBoolOrElse(
+                "simianarmy.conformity.rule.InstanceContainsTag.enabled", false)) {
+            String requiredTags = configuration().getStr(
+                    "simianarmy.conformity.rule.InstanceContainsTag.requiredTags");
+            if (!StringUtils.isBlank(requiredTags)) {
+                ruleEngine.addRule(new InstanceHasTag(getAwsCredentialsProvider(),
+                        StringUtils.split(requiredTags, ",")));
+            } else {
+                LOGGER.info("No required tags are specified, "
+                        + "the conformity rule InstanceHasTag is ignored.");
+            }
         }
         
         createClient(region());

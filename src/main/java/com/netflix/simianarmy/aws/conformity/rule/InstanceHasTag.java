@@ -19,8 +19,8 @@ package com.netflix.simianarmy.aws.conformity.rule;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Tag;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -41,14 +41,14 @@ import java.util.Map;
 /**
  * The class implementing a conformity rule that checks whether or not all instances have a certain tag.
  */
-public class InstanceHasTags implements ConformityRule {
+public class InstanceHasTag implements ConformityRule {
     private static final Logger LOGGER = LoggerFactory.getLogger(InstanceHasStatusUrl.class);
 
     private static final String RULE_NAME = "InstanceHasTag";
     private final String reason;
 
     /**
-     * We probably need something else like "allowed tag values" but right now this only 
+     * We probably need something else like "allowed tag values" but right now this only
      * has something like these Tags are there or not
      *
      * private final Collection<String> requiredSecurityGroupNames = Sets.newHashSet();
@@ -63,7 +63,7 @@ public class InstanceHasTags implements ConformityRule {
      * @param requiredTags
      *      The tags that are required to have for every instance of an ASG (or region).
      */
-    public InstanceHasTags(String... requiredTags) {
+    public InstanceHasTag(String... requiredTags) {
         this(new DefaultAWSCredentialsProviderChain(), requiredTags);
     }
 
@@ -74,7 +74,7 @@ public class InstanceHasTags implements ConformityRule {
      * @param requiredTags
      *      The tags that are required to have for every instance of an ASG (or region).
      */
-    public InstanceHasTags(AWSCredentialsProvider awsCredentialsProvider, String... requiredTags)
+    public InstanceHasTag(AWSCredentialsProvider awsCredentialsProvider, String... requiredTags)
     {
         this.awsCredentialsProvider = awsCredentialsProvider;
         Validate.notNull(requiredTags);
@@ -83,7 +83,7 @@ public class InstanceHasTags implements ConformityRule {
             this.requiredTags.add(tagName.trim());
         }
         this.reason = String.format("Instances do not have tags (%s)",
-		StringUtils.join(this.requiredTags, ","));
+                StringUtils.join(this.requiredTags, ","));
     }
 
     @Override
@@ -129,8 +129,7 @@ public class InstanceHasTags implements ConformityRule {
      */
     protected boolean checkTags(Collection<String> TagNames) {
         for (String requiredTag : requiredTags) {
-            if (!TagNames.contains(requiredTags)) {
-                LOGGER.info(String.format("Required tag %s is not found.", requiredTag));
+            if (!TagNames.contains(requiredTag)) {
                 return false;
             }
         }
@@ -155,22 +154,15 @@ public class InstanceHasTags implements ConformityRule {
         AWSClient awsClient = new AWSClient(region, awsCredentialsProvider);
         for (Instance instance : awsClient.describeInstances(instanceIds)) {
             // Ignore instances that are in VPC
-            if (StringUtils.isNotEmpty(instance.getVpcId())) {
-                LOGGER.info(String.format("Instance %s is in VPC and is ignored.", instance.getInstanceId()));
-                continue;
-            }
-
             if (!"running".equals(instance.getState().getName())) {
                 LOGGER.info(String.format("Instance %s is not running, state is %s.",
                         instance.getInstanceId(), instance.getState().getName()));
                 continue;
             }
-
-            List<Tag> tags = Lists.newArrayList();
+            List<String> tags = Lists.newArrayList();
             for (Tag instanceTag : instance.getTags()) {
                 tags.add(instanceTag.getKey());
             }
-
             result.put(instance.getInstanceId(), tags);
         }
         return result;
